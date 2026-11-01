@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Manajemen Resi</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+* { box-sizing: border-box; }
+body { font-family:-apple-system,sans-serif; background:#eef2f7; margin:0;}
+.container { max-width:420px; margin:auto; padding:10px;}
+#jamSekarang { background:linear-gradient(135deg,#111,#222); color:#00ff88; padding:14px; border-radius:16px; text-align:center; margin-bottom:12px;}
+.tanggal {font-size:11px; opacity:.6;}
+.jam {font-size:34px; font-weight:bold;}
+.card { background:white; border-radius:18px; padding:16px; box-shadow:0 8px 20px rgba(0,0,0,0.08);}
+.search-box { display:flex; gap:6px; margin-bottom:10px;}
+.search-box input { flex:1; padding:14px; border-radius:12px; border:2px solid #ddd; min-width:0;}
+.search-box button { padding:12px; border-radius:10px; background:#111; color:white; border:none;}
+.tab-container { display:flex; overflow:auto; gap:6px; margin-bottom:10px;}
+.tab { padding:12px 16px; border-radius:12px; background:#ddd; font-size:15px; font-weight:600; cursor:pointer; white-space:nowrap; flex-shrink:0; min-height:46px; display:inline-flex; align-items:center; gap:8px;}
+.tab.active { background:#111; color:white;}
+.tab-add { background:#22c55e; color:white; font-size:22px; min-width:46px; justify-content:center; padding:8px;} 
+.tab-count { font-size:17px; font-weight:800; } 
+.tab-delete { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:#ef4444; color:white; font-size:14px; line-height:1; font-weight:bold; flex:none; }
+input { width:100%; padding:14px; border-radius:12px; border:2px solid #ddd; margin-bottom:10px;}
+input:focus { border-color:#22c55e; background:#ecfdf5;}
+input:disabled { background:#eee; cursor:not-allowed; }
+.status { padding:10px; border-radius:10px; display:none; margin-bottom:10px; text-align:center; font-weight:bold; overflow-wrap:anywhere;}
+.success { background:#22c55e; color:white;}
+.error { background:#ef4444; color:white;}
+.warning { background:#fff7ed; color:#9a3412; border:1px solid #fdba74; text-align:left; font-weight:normal;}
+.btn-group { display:flex; gap:6px; margin-bottom:10px;}
+button { cursor:pointer; flex:1; padding:12px; border:none; border-radius:10px; color:white;}
+button:disabled { opacity:0.5; cursor:not-allowed;}
+.btn-tambah { background:#22c55e;}
+.btn-reset { background:#ef4444;}
+.btn-export { background:#3b82f6;}
+.btn-import { background:#7c3aed;}
+.stats { display:flex;}
+.stat-box { flex:1; margin:2px; padding:6px; border-radius:8px; color:white; text-align:center; font-size:12px;}
+.orange{background:orange;}
+.gray{background:gray;}
+.blue{background:#3b82f6;}
+ul{padding:0;}
+li { list-style:none; margin:6px 0; padding:10px; padding-right:76px; border-radius:10px; position:relative; overflow-wrap:anywhere;}
+.waktu{font-size:11px; opacity:.75; margin-top:3px;}
+.btn-hapus { position:absolute; right:5px; top:5px; background:red; font-size:10px; padding:5px 7px; color:white; border:none; flex:none; width:auto;}
+.btn-restore { position:absolute; right:40px; top:5px; background:green; font-size:10px; padding:5px 7px; color:white; border:none; flex:none; width:auto;}
+.import-note {font-size:12px;color:#555;line-height:1.5;margin:0 0 10px;}
+#importFile {display:none;}
+#hasilImport {text-align:left;font-weight:normal;}
+#hasilImport h4 {margin:0 0 8px;}
+#hasilImport ul {margin:6px 0 0;padding-left:18px;}
+#hasilImport li {list-style:disc;margin:4px 0;padding:0;overflow-wrap:anywhere;}
+</style>
+</head>
+<body>
+<div class="container">
+  <div id="jamSekarang">
+    <div class="tanggal" id="tanggal"></div>
+    <div class="jam" id="jam"></div>
+  </div>
+  <div class="card">
+    <h3>Input Resi</h3>
+    <div class="search-box">
+      <input id="searchInput" placeholder="Cari resi..." autocomplete="off">
+      <button type="button" onclick="cariResi()">Cari</button>
+    </div>
+    <div id="hasilSearch" class="status"></div>
+    <div class="tab-container" id="tabGrup"></div>
+    <input id="resiInput" placeholder="Scan / ketik resi..." autocomplete="off">
+    <div class="btn-group" id="groupActionButtons">
+      <button type="button" class="btn-tambah" onclick="tambahResi()">Tambah</button>
+      <button type="button" class="btn-reset" onclick="resetSemua()">Reset</button>
+    </div>
+    <div class="btn-group" id="allActionButtons" style="display:none;">
+      <button type="button" class="btn-export" onclick="exportExcel()">Export</button>
+      <button type="button" class="btn-import" onclick="document.getElementById('importFile').click()">Import Excel</button>
+      <input id="importFile" type="file" accept=".xlsx,.xls,.csv">
+    </div>
+    <div class="btn-group" id="resetAllContainer" style="display:none;">
+      <button type="button" class="btn-reset" onclick="resetAll()">Reset All</button>
+    </div>
+    <p class="import-note" id="importNote" style="display:none;">Pilih file hasil Export dengan kolom No, Resi, Waktu, dan Grup. Resi akan masuk ke grup sesuai file. Resi duplikat dilewati dan dilaporkan.</p>
+    <div id="pesan" class="status"></div>
+    <div id="hasilImport" class="status"></div>
+    <h4>Total: <span id="total">0</span></h4>
+    <ul id="daftarResi"></ul>
+  </div>
+</div>
+
+<div id="duplicateModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.58); z-index:9999; align-items:center; justify-content:center; padding:20px;">
+  <div role="dialog" aria-modal="true" aria-labelledby="duplicateTitle" style="width:100%; max-width:360px; background:white; border-radius:16px; padding:20px; box-shadow:0 12px 35px rgba(0,0,0,.25); text-align:center;">
+    <div style="font-size:34px; margin-bottom:8px;">⚠️</div>
+    <h3 id="duplicateTitle" style="margin:0 0 10px;">Resi Duplikat!</h3>
+    <div id="duplicateMessage" style="font-size:14px; line-height:1.5; overflow-wrap:anywhere; margin-bottom:16px;"></div>
+    <button type="button" onclick="tutupNotifikasiDuplikat()" style="width:100%; background:#ef4444; color:white; font-weight:bold;">Tutup Notifikasi</button>
+  </div>
+</div>
+
+
+<div id="formatModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.58); z-index:10000; align-items:center; justify-content:center; padding:20px;">
+  <div role="dialog" aria-modal="true" aria-labelledby="formatTitle" style="width:100%; max-width:360px; background:white; border-radius:16px; padding:20px; box-shadow:0 12px 35px rgba(0,0,0,.25); text-align:center;">
+    <div style="font-size:34px; margin-bottom:8px;">⚠️</div>
+    <h3 id="formatTitle" style="margin:0 0 10px;">Format Resi Tidak Sesuai!</h3>
+    <div id="formatMessage" style="font-size:14px; line-height:1.5; overflow-wrap:anywhere; margin-bottom:16px;"></div>
+    <button type="button" onclick="tutupNotifikasiFormat()" style="width:100%; background:#ef4444; color:white; font-weight:bold;">Tutup Notifikasi</button>
+  </div>
+</div>
+
+<script>
+let dataResi = [];
+let dataHapus = [];
+let daftarGrup = [];
+let grupAktif = "ALL";
+
+try {
+  const savedResi = localStorage.getItem("resi");
+  if (savedResi) dataResi = JSON.parse(savedResi);
+  const savedHapus = localStorage.getItem("hapus");
+  if (savedHapus) dataHapus = JSON.parse(savedHapus);
+  const savedGrup = localStorage.getItem("daftarGrup");
+  if (savedGrup) {
+    const parsed = JSON.parse(savedGrup);
+    if (Array.isArray(parsed)) daftarGrup = parsed;
+  }
+  // Pastikan grup yang sudah tersimpan di data tidak hilang dari tab.
+  [...dataResi, ...dataHapus].forEach(x => {
+    if (x.grup && !daftarGrup.includes(x.grup)) daftarGrup.push(x.grup);
+  });
+} catch (e) {
+  alert("Data tersimpan di browser tidak dapat dibaca. Jangan hapus data browser; periksa penyimpanan sebelum melanjutkan.");
+}
+
+const $ = id => document.getElementById(id);
+function getWaktu(){ return new Date().toLocaleString("id-ID"); }
+
+function updateJam(){
+  const d = new Date();
+  $("tanggal").innerText = d.toLocaleDateString("id-ID");
+  $("jam").innerText = d.toLocaleTimeString("id-ID");
+}
+updateJam();
+setInterval(updateJam, 1000);
+
+function bunyi(t){
+  // Sukses: satu beep pendek. Duplikat: suara klakson elektronik selama 0,5 detik.
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+
+    if (t === "duplicate") {
+      // Dua frekuensi berlapis menghasilkan karakter klakson yang tegas.
+      const duration = 0.5;
+      [390, 520].forEach((freq, index) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const filter = ctx.createBiquadFilter();
+
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(freq, now);
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(1800, now);
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(index === 0 ? 0.20 : 0.15, now + 0.025);
+        gain.gain.setValueAtTime(index === 0 ? 0.20 : 0.15, now + duration - 0.07);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+        osc.start(now);
+        osc.stop(now + duration + 0.01);
+      });
+      setTimeout(() => ctx.close(), 700);
+    } else {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 880;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.16, now + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+      osc.start(now);
+      osc.stop(now + 0.10);
+      osc.onended = () => ctx.close();
+    }
+  } catch (e) {
+    // Audio tidak tersedia: proses input tetap berjalan normal.
+  }
+}
+
+function simpan(){
+  try {
+    localStorage.setItem("resi", JSON.stringify(dataResi));
+    localStorage.setItem("hapus", JSON.stringify(dataHapus));
+    localStorage.setItem("daftarGrup", JSON.stringify(daftarGrup));
+  } catch (e) {
+    alert("Penyimpanan browser penuh atau tidak tersedia. Export data sebagai cadangan.");
+  }
+}
+
+function renderTab(){
+  const wrap = $("tabGrup");
+  wrap.innerHTML = "";
+
+  function buatTab(label, count, active, onClick, canDelete=false, onDelete=null) {
+    const tab = document.createElement("div");
+    tab.className = "tab" + (active ? " active" : "");
+    tab.onclick = onClick;
+
+    const nama = document.createElement("span");
+    nama.textContent = label;
+    tab.appendChild(nama);
+
+    const jumlah = document.createElement("span");
+    jumlah.className = "tab-count";
+    jumlah.textContent = "(" + count + ")";
+    tab.appendChild(jumlah);
+
+    if (canDelete) {
+      const del = document.createElement("span");
+      del.className = "tab-delete";
+      del.textContent = "×";
+      del.title = "Hapus grup " + label;
+      del.setAttribute("role", "button");
+      del.setAttribute("aria-label", "Hapus grup " + label);
+      del.onclick = (e) => {
+        e.stopPropagation();
+        onDelete();
+      };
+      tab.appendChild(del);
+    }
+    wrap.appendChild(tab);
+  }
+
+  buatTab("ALL", dataResi.length, grupAktif === "ALL", () => {
+    grupAktif = "ALL"; tampil();
+  });
+
+  daftarGrup.forEach(g => {
+    const total = dataResi.filter(x => x.grup === g).length;
+    buatTab(g, total, g === grupAktif, () => {
+      grupAktif = g; tampil();
+    }, true, () => hapusGrup(g));
+  });
+
+  buatTab("HAPUS", dataHapus.length, grupAktif === "HAPUS", () => {
+    grupAktif = "HAPUS"; tampil();
+  });
+
+  const add = document.createElement("div");
+  add.className = "tab tab-add";
+  add.textContent = "+";
+  add.title = "Tambah grup";
+  add.onclick = () => {
+    const nama = prompt("Masukkan nama grup baru:");
+    if (!nama || !nama.trim()) return;
+    const clean = nama.trim();
+    if (clean === "ALL" || clean === "HAPUS" || daftarGrup.includes(clean)) {
+      alert("Nama grup tidak valid atau sudah ada.");
+      return;
+    }
+    daftarGrup.push(clean);
+    grupAktif = clean;
+    simpan();
+    tampil();
+  };
+  wrap.appendChild(add);
+}
+
+function hapusGrup(namaGrup){
+  const jumlah = dataResi.filter(x => x.grup === namaGrup).length;
+  const konfirmasi = confirm(
+    "Hapus menu grup " + namaGrup + "?\\n\\n" +
+    "Jumlah resi di grup ini: " + jumlah + ".\\n" +
+    "Resi tidak dihapus permanen, tetapi dipindahkan ke menu HAPUS agar tetap bisa dipulihkan.\\n\\n" +
+    "Lanjutkan?"
+  );
+  if (!konfirmasi) return;
+
+  const sisa = [];
+  dataResi.forEach(x => {
+    if (x.grup === namaGrup) {
+      dataHapus.push({...x, grup: namaGrup});
+    } else {
+      sisa.push(x);
+    }
+  });
+  dataResi = sisa;
+  daftarGrup = daftarGrup.filter(g => g !== namaGrup);
+  if (grupAktif === namaGrup) grupAktif = "ALL";
+  simpan();
+  tampil();
+}
+
+function tampil(){
+  const isAll = grupAktif === "ALL";
+  const isHapus = grupAktif === "HAPUS";
+  $("resiInput").disabled = isAll || isHapus;
+  document.querySelector(".btn-tambah").disabled = isAll || isHapus;
+  document.querySelector(".btn-reset").disabled = isAll || isHapus;
+
+  // ALL: Export, Import, Reset All. Grup biasa: hanya Tambah dan Reset.
+  // HAPUS: tidak menampilkan tombol aksi grup.
+  $("groupActionButtons").style.display = (!isAll && !isHapus) ? "flex" : "none";
+  $("allActionButtons").style.display = isAll ? "flex" : "none";
+  $("importNote").style.display = isAll ? "block" : "none";
+  $("resetAllContainer").style.display = isAll ? "flex" : "none";
+
+  let f;
+  if (isAll) f = dataResi;
+  else if (isHapus) f = dataHapus;
+  else f = dataResi.filter(x => x.grup === grupAktif);
+
+  const list = $("daftarResi");
+  list.innerHTML = "";
+  [...f].reverse().forEach(x => {
+    const li = document.createElement("li");
+    const resiText = document.createTextNode(x.resi || "");
+    li.appendChild(resiText);
+    const waktu = document.createElement("div");
+    waktu.className = "waktu";
+    waktu.textContent = (x.waktu || "") + (isAll ? " | " + (x.grup || "") : "");
+    li.appendChild(waktu);
+
+    if (isHapus) {
+      const btnR = document.createElement("button");
+      btnR.type = "button"; btnR.innerText = "↩"; btnR.className = "btn-restore";
+      btnR.onclick = () => restore(x.resi, x.waktu);
+      const btnD = document.createElement("button");
+      btnD.type = "button"; btnD.innerText = "X"; btnD.className = "btn-hapus";
+      btnD.onclick = () => hapusPermanen(x.resi, x.waktu);
+      li.append(btnR, btnD);
+    } else if (!isAll) {
+      const btn = document.createElement("button");
+      btn.type = "button"; btn.innerText = "X"; btn.className = "btn-hapus";
+      btn.onclick = () => hapus(x.resi, x.waktu);
+      li.appendChild(btn);
+    }
+    list.appendChild(li);
+  });
+
+  $("total").innerText = f.length;
+  renderTab();
+}
+
+function tampilPesan(teks, tipe="success"){
+  const el = $("pesan");
+  el.className = "status " + tipe;
+  el.style.display = "block";
+  el.textContent = teks;
+}
+
+let notifikasiDuplikatTerbuka = false;
+let notifikasiFormatTerbuka = false;
+
+function formatResiValid(val){
+  return /^SPXID[A-Za-z0-9]{12}$/.test(String(val).trim());
+}
+
+function tampilkanNotifikasiFormat(val){
+  notifikasiFormatTerbuka = true;
+  $("resiInput").disabled = true;
+  $("formatMessage").textContent =
+    "Resi yang dimasukkan: " + val +
+    "\\nFormat wajib: SPXID diikuti tepat 12 huruf atau angka." +
+    "\\nTutup notifikasi ini sebelum melanjutkan scan.";
+  $("formatModal").style.display = "flex";
+  bunyi("duplicate");
+}
+
+function tutupNotifikasiFormat(){
+  $("formatModal").style.display = "none";
+  notifikasiFormatTerbuka = false;
+  $("resiInput").disabled = (grupAktif === "ALL" || grupAktif === "HAPUS");
+  if (!$("resiInput").disabled) {
+    $("resiInput").value = "";
+    $("resiInput").focus();
+  }
+}
+
+
+function tampilkanNotifikasiDuplikat(resi, grup, waktu){
+  notifikasiDuplikatTerbuka = true;
+  $("resiInput").disabled = true;
+  $("duplicateMessage").textContent =
+    "Nomor resi " + resi + " sudah pernah diinput.\\nGrup: " + grup +
+    (waktu ? "\\nWaktu: " + waktu : "") +
+    "\\nTutup notifikasi ini sebelum melanjutkan scan.";
+  $("duplicateModal").style.display = "flex";
+  bunyi("duplicate");
+}
+
+function tutupNotifikasiDuplikat(){
+  $("duplicateModal").style.display = "none";
+  notifikasiDuplikatTerbuka = false;
+  $("resiInput").disabled = (grupAktif === "ALL" || grupAktif === "HAPUS");
+  if (!$("resiInput").disabled) {
+    $("resiInput").value = "";
+    $("resiInput").focus();
+  }
+}
+
+function tambahResi(){
+  if (grupAktif === "ALL" || grupAktif === "HAPUS") {
+    alert("Pilih grup terlebih dahulu untuk input resi.");
+    return;
+  }
+  const val = $("resiInput").value.trim();
+  if (!val) { tampilPesan("Kolom resi masih kosong.", "error"); return; }
+  if (!formatResiValid(val)) {
+    tampilkanNotifikasiFormat(val);
+    return;
+  }
+  const ex = dataResi.find(x => String(x.resi).trim() === val);
+  if (ex) {
+    tampilkanNotifikasiDuplikat(val, ex.grup || "(tanpa grup)", ex.waktu || "");
+    return;
+  }
+  dataResi.push({resi:val, waktu:getWaktu(), grup:grupAktif});
+  bunyi("success");
+  $("resiInput").value = "";
+  simpan(); tampil();
+  $("pesan").style.display = "none";
+  $("resiInput").focus();
+}
+
+function hapus(resi,waktu){
+  const i = dataResi.findIndex(x => x.resi === resi && x.waktu === waktu);
+  if (i !== -1) { dataHapus.push(dataResi[i]); dataResi.splice(i,1); }
+  simpan(); tampil();
+}
+function restore(resi,waktu){
+  const i = dataHapus.findIndex(x => x.resi === resi && x.waktu === waktu);
+  if (i !== -1) {
+    const duplicate = dataResi.find(x => String(x.resi).trim() === String(resi).trim());
+    if (duplicate) { alert("Resi sudah aktif di " + duplicate.grup + "."); return; }
+    dataResi.push(dataHapus[i]); dataHapus.splice(i,1);
+  }
+  simpan(); tampil();
+}
+function hapusPermanen(resi,waktu){
+  if (!confirm("Hapus resi ini secara permanen?")) return;
+  const i = dataHapus.findIndex(x => x.resi === resi && x.waktu === waktu);
+  if (i !== -1) dataHapus.splice(i,1);
+  simpan(); tampil();
+}
+function resetSemua(){
+  if (grupAktif === "ALL" || grupAktif === "HAPUS") {
+    alert("Tidak bisa reset di tab ini."); return;
+  }
+  if (confirm("Hapus semua data grup " + grupAktif + "?")) {
+    dataResi = dataResi.filter(x => x.grup !== grupAktif);
+    simpan(); tampil();
+  }
+}
+
+function resetAll(){
+  if (grupAktif !== "ALL") {
+    alert("Reset All hanya tersedia di menu ALL.");
+    return;
+  }
+  const totalAktif = dataResi.length;
+  const totalTerhapus = dataHapus.length;
+  if (totalAktif === 0 && totalTerhapus === 0) {
+    alert("Tidak ada data untuk direset.");
+    return;
+  }
+  const yakin = confirm(
+    "PERINGATAN: Reset All akan menghapus SELURUH data resi aktif dan data di menu HAPUS dari semua grup.\\n\\n" +
+    "Data aktif: " + totalAktif + "\\nData di HAPUS: " + totalTerhapus +
+    "\\n\\nTindakan ini tidak dapat dibatalkan. Lanjutkan?"
+  );
+  if (!yakin) return;
+
+  dataResi = [];
+  dataHapus = [];
+  simpan();
+  tampil();
+  $("hasilImport").style.display = "none";
+  $("pesan").style.display = "none";
+  alert("Semua data resi berhasil direset. Daftar grup tetap dipertahankan.");
+}
+
+function exportExcel(){
+  if (!window.XLSX) { alert("Fitur Excel tidak dapat dimuat. Periksa koneksi internet."); return; }
+  const f = grupAktif === "ALL" ? dataResi :
+    grupAktif === "HAPUS" ? dataHapus :
+    dataResi.filter(x => x.grup === grupAktif);
+  if (!f.length) { alert("Tidak ada data untuk diekspor."); return; }
+  const namaFile = prompt("Masukkan nama file Excel:", "");
+  if (namaFile === null) return;
+  const namaBersih = namaFile.trim().replace(/[\\/:*?"<>|]/g, "_").replace(/\\.xlsx$/i, "");
+  if (!namaBersih) {
+    alert("Nama file tidak boleh kosong.");
+    return;
+  }
+  const data = f.map((x,i) => ({No:i+1, Resi:x.resi, Waktu:x.waktu, Grup:x.grup || "HAPUS"}));
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(data);
+  XLSX.utils.book_append_sheet(wb, ws, "Data");
+  XLSX.writeFile(wb, namaBersih + ".xlsx");
+}
+
+function cariResi(){
+  const val = $("searchInput").value.trim();
+  const f = dataResi.find(x => String(x.resi).trim() === val);
+  const el = $("hasilSearch");
+  el.style.display = "block";
+  if (f) {
+    el.className = "status success";
+    el.textContent = "Ditemukan — " + f.grup + " — " + f.waktu;
+  } else {
+    el.className = "status error";
+    el.textContent = "Resi tidak ditemukan.";
+  }
+}
+
+// Import file hasil Export: No, Resi, Waktu, Grup.
+$("importFile").addEventListener("change", async function(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  const hasil = $("hasilImport");
+  hasil.style.display = "block";
+  hasil.className = "status warning";
+  hasil.textContent = "Sedang membaca file...";
+  try {
+    if (!window.XLSX) throw new Error("Fitur Excel tidak dapat dimuat. Periksa koneksi internet.");
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, {type:"array", cellDates:true});
+    const sheetName = workbook.SheetNames[0];
+    if (!sheetName) throw new Error("File tidak memiliki sheet yang bisa dibaca.");
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {defval:"", raw:false});
+    if (!rows.length) throw new Error("File Excel kosong.");
+
+    // Header dicocokkan tanpa membedakan huruf besar/kecil dan spasi.
+    const normalizeHeader = s => String(s).trim().toLowerCase().replace(/[\s_-]+/g, "");
+    const first = rows[0];
+    const keys = Object.keys(first);
+    const findKey = wanted => keys.find(k => normalizeHeader(k) === normalizeHeader(wanted));
+    const kResi = findKey("Resi"), kWaktu = findKey("Waktu"), kGrup = findKey("Grup");
+    if (!kResi || !kWaktu || !kGrup) {
+      throw new Error("Kolom wajib tidak ditemukan. Pastikan file memiliki kolom Resi, Waktu, dan Grup.");
+    }
+
+    // Buat indeks resi aktif untuk mendeteksi duplikat di semua grup.
+    const activeMap = new Map();
+    dataResi.forEach(x => {
+      const key = String(x.resi ?? "").trim();
+      if (key) activeMap.set(key, x);
+    });
+    const importSeen = new Set();
+    const validRows = [];
+    const duplicates = [];
+    const invalidRows = [];
+    rows.forEach((row, idx) => {
+      const resi = String(row[kResi] ?? "").trim();
+      const waktu = String(row[kWaktu] ?? "").trim();
+      const grup = String(row[kGrup] ?? "").trim();
+      const rowNo = idx + 2; // header di baris pertama
+      if (!resi || !grup) {
+        invalidRows.push({row:rowNo, reason:!resi ? "Nomor resi kosong" : "Nama grup kosong"});
+        return;
+      }
+      if (activeMap.has(resi)) {
+        const existing = activeMap.get(resi);
+        duplicates.push({resi, grupFile:grup, grupAda:existing.grup || "(tanpa grup)", waktuAda:existing.waktu || ""});
+        return;
+      }
+      if (importSeen.has(resi)) {
+        duplicates.push({resi, grupFile:grup, grupAda:"duplikat di dalam file import", waktuAda:""});
+        return;
+      }
+      importSeen.add(resi);
+      validRows.push({resi, waktu:waktu || getWaktu(), grup});
+    });
+
+    if (!validRows.length && !duplicates.length && !invalidRows.length) {
+      throw new Error("Tidak ada data yang bisa diimpor.");
+    }
+
+    const preview = [
+      "Ringkasan pemeriksaan:",
+      "Baris data dibaca: " + rows.length,
+      "Resi siap diimpor: " + validRows.length,
+      "Duplikat dilewati: " + duplicates.length,
+      "Baris tidak valid dilewati: " + invalidRows.length,
+      "",
+      "Lanjutkan import resi yang valid?"
+    ].join("\n");
+    if (!confirm(preview)) {
+      hasil.className = "status";
+      hasil.style.display = "none";
+      return;
+    }
+
+    // Grup baru dibuat otomatis sesuai nilai kolom Grup.
+    const grupBaru = [];
+    validRows.forEach(x => {
+      if (!daftarGrup.includes(x.grup)) {
+        daftarGrup.push(x.grup);
+        grupBaru.push(x.grup);
+      }
+    });
+    dataResi.push(...validRows);
+    simpan();
+    tampil();
+
+    hasil.className = "status warning";
+    hasil.style.display = "block";
+    hasil.innerHTML = "";
+    const title = document.createElement("h4");
+    title.textContent = "Import selesai";
+    hasil.appendChild(title);
+    const summary = document.createElement("div");
+    summary.textContent =
+      "Berhasil diimpor: " + validRows.length +
+      " resi. Duplikat dilewati: " + duplicates.length +
+      ". Baris tidak valid dilewati: " + invalidRows.length +
+      ". Grup baru dibuat: " + grupBaru.length + ".";
+    hasil.appendChild(summary);
+
+    if (grupBaru.length) {
+      const p = document.createElement("p");
+      p.textContent = "Grup baru: " + grupBaru.join(", ");
+      hasil.appendChild(p);
+    }
+    if (duplicates.length) {
+      const h = document.createElement("p");
+      h.style.fontWeight = "bold";
+      h.textContent = "Daftar resi duplikat:";
+      hasil.appendChild(h);
+      const ul = document.createElement("ul");
+      duplicates.slice(0,100).forEach(d => {
+        const li = document.createElement("li");
+        li.textContent = d.resi + " — grup file: " + d.grupFile +
+          "; sudah ada: " + d.grupAda +
+          (d.waktuAda ? "; waktu: " + d.waktuAda : "");
+        ul.appendChild(li);
+      });
+      hasil.appendChild(ul);
+      if (duplicates.length > 100) {
+        const more = document.createElement("p");
+        more.textContent = "Dan " + (duplicates.length - 100) + " duplikat lainnya.";
+        hasil.appendChild(more);
+      }
+    }
+    if (invalidRows.length) {
+      const h = document.createElement("p");
+      h.style.fontWeight = "bold";
+      h.textContent = "Baris tidak valid:";
+      hasil.appendChild(h);
+      const ul = document.createElement("ul");
+      invalidRows.slice(0,50).forEach(r => {
+        const li = document.createElement("li");
+        li.textContent = "Baris " + r.row + ": " + r.reason;
+        ul.appendChild(li);
+      });
+      hasil.appendChild(ul);
+      if (invalidRows.length > 50) {
+        const more = document.createElement("p");
+        more.textContent = "Dan " + (invalidRows.length - 50) + " baris tidak valid lainnya.";
+        hasil.appendChild(more);
+      }
+    }
+  } catch (err) {
+    hasil.className = "status error";
+    hasil.style.display = "block";
+    hasil.textContent = "Import gagal: " + (err && err.message ? err.message : "File tidak dapat dibaca.");
+  } finally {
+    event.target.value = "";
+  }
+});
+
+$("resiInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); tambahResi(); }
+});
+$("searchInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); cariResi(); }
+});
+
+// Fokus otomatis hanya saat tab grup input sedang aktif.
+setInterval(() => {
+  if (!notifikasiDuplikatTerbuka && !notifikasiFormatTerbuka &&
+      grupAktif !== "ALL" && grupAktif !== "HAPUS" &&
+      document.activeElement !== $("searchInput") &&
+      document.activeElement !== $("importFile")) {
+    $("resiInput").focus();
+  }
+}, 800);
+
+tampil();
+if (grupAktif !== "ALL" && grupAktif !== "HAPUS") $("resiInput").focus();
+</script>
+</body>
+</html>
